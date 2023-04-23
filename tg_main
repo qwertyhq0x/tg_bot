@@ -1,0 +1,313 @@
+<% SWITCH cmd %>
+<% CASE 'USER_NOT_FOUND' %>
+{
+    "sendMessage": {
+        "text": "<b>Добро пожаловать в бота HQ VPN.</b> \n\nБлагодаря мне, вы можете получить доступ к нашему сервису. \n\nДля всех новых пользователей реализован <b>тестовый доступ на 7 дней.</b> \n\nЕсли у вас был аккаунт пишите в Чат-бот поддержки",
+        "reply_markup": {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": "Регистрация ✍",
+                        "callback_data": "/register"
+                    }
+                ],
+                [
+                    {
+                        "text": "Канал 📣",
+                        "url": "https://t.me/hq_vpn"
+                    }
+                ],
+                [
+                    {
+                        "text": "Группа 🗣",
+                        "url": "https://t.me/hq_vpn_group"
+                    }
+                ],
+                [
+                    {
+                        "text": "Чат-бот поддержки 🛠",
+                        "url": "https://t.me/HQ_VPN_HQ_BOT"
+                    }
+                ]
+            ]
+        }
+    }
+}
+<% CASE '/register' %>
+{
+    "deleteMessage": { "message_id": {{ message.message_id }} }
+},
+{
+    "shmRegister": {
+        "callback_data": "/menu",
+        "error": "ОШИБКА: Логин {{ message.chat.username }} или chat_id {{ message.chat.id }} уже существует"
+    }
+}
+<% CASE ['/start', '/menu'] %>
+{{ IF cmd == '/menu' }}
+{
+    "deleteMessage": { "message_id": {{ message.message_id }} }
+},
+{{ END }}
+{
+    "sendMessage": {
+        "text": "<b>Создавайте и управляйте своими VPN ключами.</b> \n\nДля регистрации новой услуги прейдите в 🗝 <b>Ключи</b> \n\nЧтоб пополнить баланс перейдите в 💰 <b>Баланc</b> \n\nБолее подробно о подключении в меню 👻 <b>Как подключиться</b>",
+        "reply_markup": {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": "💰 Баланс",
+                        "callback_data": "/balance"
+                    }
+                ],
+                [
+                    {
+                        "text": "Подключение услуг  (🗝 Ключи)",
+                        "callback_data": "/list"
+                    }
+                ],
+                [
+                    {
+                        "text": "👻 Как подключитья",
+                        "callback_data": "/help"
+                    }
+                ]
+            ]
+        }
+    }
+}
+<% CASE '/balance' %>
+{
+    "deleteMessage": { "message_id": {{ message.message_id }} }
+},
+{
+    "sendMessage": {
+        "text": "💰 <b>Баланс</b>: {{ user.balance }}\n\nНеобходимо оплатить: <b>{{ user.pays.forecast.total }}</b>",
+        "reply_markup" : {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": "✚ Пополнить баланс Картой",
+                        "url": "https://yoomoney.ru/quickpay/shop-widget?writer=seller&targets=%D0%9E%D0%BF%D0%BB%D0%B0%D1%82%D0%B0%20%D0%BF%D0%BE%20%D0%B4%D0%BE%D0%B3%D0%BE%D0%B2%D0%BE%D1%80%D1%83%20{{ user.id }}&targets-hint=&default-sum={{ user.pays.forecast.total }}&label={{ user.id }}&button-text=12&payment-type-choice=on&hint=&successURL=&quickpay=shop&account={{ config.pay_systems.yoomoney.account }}"
+                    }
+                ],
+                [
+                    {
+                        "text": "📖 Помощь",
+                        "callback_data": "/help"
+                    },
+                    {
+                        "text": "🔙 В меню",
+                        "callback_data": "/menu"
+                    }
+                ]
+            ]
+        }
+    }
+}
+<% CASE '/list' %>
+{
+    "deleteMessage": { "message_id": {{ message.message_id }} }
+},
+{
+    "sendMessage": {
+        "text": "🗝  Ключи",
+        "reply_markup" : {
+            "inline_keyboard": [
+                {{ FOR item IN ref( user.services.list_for_api( 'category', '%' ) ) }}
+                {{ SWITCH item.status }}
+                  {{ CASE 'ACTIVE' }}
+                  {{ status = '✅' }}
+                  {{ CASE 'BLOCK' }}
+                  {{ status = '❌' }}
+                  {{ CASE 'NOT PAID' }}
+                  {{ status = '💰' }}
+                  {{ CASE }}
+                  {{ status = '⏳' }}
+                {{ END }}
+                [
+                    {
+                        "text": "{{ status }} - {{ item.name }}",
+                        "callback_data": "/service {{ item.user_service_id }}"
+                    }
+                ],
+                {{ END }}
+                [
+                    {
+                        "text": "🛒 Новый ключ",
+                        "callback_data": "/pricelist"
+                    }
+                ],
+                [
+                    {
+                        "text": "📖 Помощь",
+                        "callback_data": "/help"
+                    },
+                    {
+                        "text": "🔙 В меню",
+                        "callback_data": "/menu"
+                    }
+                ]
+            ]
+        }
+    }
+}
+<% CASE '/service' %>
+{{ us = user.services.list_for_api( 'usi', args.0 ) }}
+{
+    "deleteMessage": { "message_id": {{ message.message_id }} }
+},
+{
+    "sendMessage": {
+        "text": "<b>Ключ</b>: {{ us.name }}\n\n<b>Оплачен до</b>: {{ us.expire }}\n\n<b>Статус</b>: {{ us.status }}",
+        "reply_markup" : {
+            "inline_keyboard": [
+                {{ IF us.status == 'ACTIVE' }}
+                [
+                    {
+                        "text": "🗝  Скачать ключ",
+                        "callback_data": "/download_qr {{ args.0 }}"
+                    },
+                    {
+                        "text": "👀 Показать QR код",
+                        "callback_data": "/show_qr {{ args.0 }}"
+                    }
+                ],
+                {{ END }}
+                {{ IF us.status != 'PROGRESS' }}
+                [
+                    {
+                        "text": "❌ Удалить услугу",
+                        "callback_data": "/delete {{ args.0 }}"
+                    }
+                ],
+                {{ END }}
+                [
+                    {
+                        "text": "🔙 Назад",
+                        "callback_data": "/list"
+                    },
+                    {
+                        "text": "🔙 В меню",
+                        "callback_data": "/menu"
+                    }
+                ]
+            ]
+        }
+    }
+}
+<% CASE '/pricelist' %>
+{
+    "deleteMessage": { "message_id": {{ message.message_id }} }
+},
+{
+    "sendMessage": {
+        "text": "☷ Выберите услугу для заказа",
+        "reply_markup" : {
+            "inline_keyboard": [
+                {{ FOR item IN ref(service.api_price_list) }}
+                [
+                    {
+                        "text": "🛒 {{ item.name }}. Цена: {{ item.cost }}",
+                        "callback_data": "/serviceorder {{ item.service_id }}"
+                    }
+                ],
+                {{ END }}
+                [
+                    {
+                        "text": "🔙 Назад",
+                        "callback_data": "/menu"
+                    }
+                ]
+            ]
+        }
+    }
+}
+<% CASE '/serviceorder' %>
+{
+    "deleteMessage": { "message_id": {{ message.message_id }} }
+},
+{
+    "sendMessage": {
+        "text": "Вы выбрали услугу: {{ ref(service.api_service_by_id(args.0)).name }}. Цена: {{ ref(service.api_service_by_id(args.0)).cost }}. Подтвердите заказ",
+        "reply_markup" : {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": "✅ Подтвердить",
+                        "callback_data": "/orderconfirm {{ args.0 }}"
+                    }
+                ],
+                [
+                    {
+                        "text": "🔙 Назад",
+                        "callback_data": "/pricelist"
+                    }
+                ]
+            ]
+        }
+    }
+}
+<% CASE '/orderconfirm' %>
+{
+    "shmServiceOrder": {
+        "service_id": "{{ args.0 }}",
+        "callback_data": "/balance",
+        "error": "ОШИБКА"
+    }
+},
+{
+    "sendMessage": {
+        "text": "Ваш заказ принят! Проверьте ваш баланс.",
+        "reply_markup" : {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": "🔙 В меню",
+                        "callback_data": "/menu"
+                    }
+                ]
+            ]
+        }
+    }
+}
+<% CASE '/info' %>
+{
+    "sendMessage": {
+        "parse_mode":"HTML",
+        "text": "<b>User-id</b>: {{ user.id }}\n<b>Login</b>: {{ user.login }}\n<b>Chat-id</b>: {{ message.chat.id }}\n<b>Chat-username</b>: {{ message.chat.username }}"
+    }
+}
+<% CASE '/help' %>
+{
+    "deleteMessage": { "message_id": {{ message.message_id }} }
+},
+{
+    "sendMessage": {
+        "parse_mode":"HTML",
+        "text": "<b>Для того, чтобы получить доступ к VPN, выполните следующие шаги:</b> \n\n1️⃣  Скачайте и установите приложение WireGuard к себе на устройство. Скачать для <a href=\"https://apps.apple.com/us/app/wireguard/id1441195209\">iPhone</a>, <a href=\"https://play.google.com/store/apps/details?id=com.wireguard.android\">Android</a>, <a href=\"https://apps.apple.com/us/app/wireguard/id1451685025\">Mac</a>, <a href=\"https://download.wireguard.com/windows-client/wireguard-installer.exe\">Windows</a>.\n\n2️⃣  В разделе \"Ключи\" нажмите \"Новый ключ\" и выберите нужный вам.\n\n3️⃣  После оплаты скачайте файл настроек для приложения WireGuard. Находясь в меню \"Ключи\" выберите нужный ключ, кликнув по нему. Далее скачайте файл ключа и добавьте его в приложение WireGuard. \n\n👉 Помните, что каждый ключ предназначен для одного устройства и не может быть использован на нескольких устройствах одновременно. \n\n👉 Если у вас возникнут вопросы, вы всегда можете обратиться за помощью к нашему Чат-боту поддержки 🛠 или присоединиться к нашей Группе 🗣.",
+        "reply_markup" : {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": "Чат-бот поддержки 🛠",
+                        "url": "https://t.me/HQ_VPN_HQ_BOT"
+                    }
+                ],
+                [
+                    {
+                        "text": "Группа 🗣",
+                        "url": "https://t.me/hq_vpn_group"
+                    }
+                ],
+                [
+                    {
+                        "text": "🔙 В меню",
+                        "callback_data": "/menu"
+                    }
+                ]
+            ]
+        }
+    }
+}
+<% END %>
